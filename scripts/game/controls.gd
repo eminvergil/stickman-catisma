@@ -24,6 +24,9 @@ var _mouse := {}
 var _mouse_pressed := {}
 var _pad_pressed := {}
 var _prev := {}
+## "k1" aims with the mouse only after the mouse has been used; pressing the keyboard attack
+## or throw keys hands aiming back to the keyboard until the mouse moves again.
+var mouse_active := false
 
 
 func _input(event: InputEvent) -> void:
@@ -37,11 +40,17 @@ func _input(event: InputEvent) -> void:
 			_held[c] = k.pressed
 			if k.pressed and not k.echo:
 				_pressed[c] = true
+		if k.pressed and (code in SCHEMES.k1.attack or code in SCHEMES.k1.throw):
+			mouse_active = false
 	elif event is InputEventMouseButton:
 		var m := event as InputEventMouseButton
 		_mouse[m.button_index] = m.pressed
 		if m.pressed:
 			_mouse_pressed[m.button_index] = true
+			mouse_active = true
+	elif event is InputEventMouseMotion:
+		if (event as InputEventMouseMotion).relative.length() > 3.0:
+			mouse_active = true
 	elif event is InputEventJoypadButton:
 		var b := event as InputEventJoypadButton
 		if b.pressed:

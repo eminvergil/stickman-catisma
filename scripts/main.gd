@@ -43,6 +43,8 @@ func _ready() -> void:
 			delay = float(value)
 		elif arg.begins_with("--shot="):
 			shot = value
+		elif arg == "--fps":
+			_print_fps()
 	go(start)
 	if shot != "":
 		_shot(shot, delay)
@@ -79,6 +81,14 @@ func _unhandled_input(event: InputEvent) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST and current and current.has_method("go_back"):
 		current.go_back()
+
+
+func _print_fps() -> void:
+	while true:
+		await get_tree().create_timer(2.0).timeout
+		print("fps %d  process %.2f ms  draw calls %d" % [Engine.get_frames_per_second(),
+				Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
+				Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)])
 
 
 func _shot(path: String, delay: float) -> void:

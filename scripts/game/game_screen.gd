@@ -118,7 +118,7 @@ func _process(delta: float) -> void:
 			var dev: String = _slots[i].device
 			var aim := Vector2.ZERO
 			var f := world.fighter(i)
-			if dev == "k1" and int(Settings.get_value("aim")) == 0 and f and f.alive:
+			if dev == "k1" and int(Settings.get_value("aim")) == 0 and controls.mouse_active and f and f.alive:
 				aim = mouse - f.center()
 				p1 = i
 			human_inputs[i] = controls.read(dev, aim)
