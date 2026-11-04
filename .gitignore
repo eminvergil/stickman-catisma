@@ -1,0 +1,10 @@
+# Godot
+.godot/
+export_credentials.cfg
+
+# Builds
+build/
+dist/
+
+# OS
+.DS_Store

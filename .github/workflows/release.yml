@@ -1,0 +1,86 @@
+name: Build and release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot and export templates
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-v1
+
+      - name: Download Godot and export templates
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          mkdir -p ~/godot "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          curl -fsSL -o /tmp/godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d ~/godot
+          mv ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ~/godot/godot
+          curl -fsSL -o /tmp/templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q /tmp/templates.tpz -d /tmp/templates
+          mv /tmp/templates/templates/* "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/"
+          rm -f /tmp/godot.zip /tmp/templates.tpz
+
+      - name: Import project
+        run: ~/godot/godot --headless --path . --import
+
+      - name: Simulation tests
+        run: ~/godot/godot --headless --path . res://tests/test_sim.tscn
+
+      - name: UI tests
+        run: ~/godot/godot --headless --path . res://tests/test_ui.tscn
+
+      - name: Export Windows, macOS and Linux
+        run: |
+          set -euo pipefail
+          mkdir -p build/windows build/macos build/linux dist
+          ~/godot/godot --headless --path . --export-release "Windows" build/windows/StickmanCatisma.exe
+          ~/godot/godot --headless --path . --export-release "macOS" build/macos/StickmanCatisma.zip
+          ~/godot/godot --headless --path . --export-release "Linux" build/linux/StickmanCatisma.x86_64
+          test -s build/windows/StickmanCatisma.exe
+          test -s build/macos/StickmanCatisma.zip
+          test -s build/linux/StickmanCatisma.x86_64
+          chmod +x build/linux/StickmanCatisma.x86_64
+          cp LICENSE build/windows/ && cp LICENSE build/linux/
+          (cd build/windows && zip -q -r ../../dist/StickmanCatisma-windows.zip .)
+          (cd build/linux && zip -q -r ../../dist/StickmanCatisma-linux.zip .)
+          cp build/macos/StickmanCatisma.zip dist/StickmanCatisma-macos.zip
+          ls -la dist
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: stickman-catisma-builds
+          path: dist/
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/* --clobber
+          else
+            gh release create "$tag" dist/* --title "Stickman Çatışma ${tag}" --notes-file docs/RELEASE_NOTES.md
+          fi
